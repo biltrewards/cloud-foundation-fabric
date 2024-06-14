@@ -53,10 +53,6 @@ locals {
     for k, v in var.neg_configs :
     k => v if v.psc != null
   }
-  proxy_ssl_certificates = concat(
-    coalesce(var.ssl_certificates.certificate_ids, []),
-    [for k, v in google_compute_region_ssl_certificate.default : v.id]
-  )
 }
 
 resource "google_compute_forwarding_rule" "default" {
@@ -85,19 +81,6 @@ resource "google_compute_forwarding_rule" "default" {
   }
 }
 
-resource "google_compute_region_ssl_certificate" "default" {
-  for_each    = var.ssl_certificates.create_configs
-  project     = var.project_id
-  region      = var.region
-  name        = "${var.name}-${each.key}"
-  certificate = each.value.certificate
-  private_key = each.value.private_key
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
 resource "google_compute_region_target_http_proxy" "default" {
   count       = var.protocol == "HTTPS" ? 0 : 1
   project     = var.project_id
@@ -108,13 +91,14 @@ resource "google_compute_region_target_http_proxy" "default" {
 }
 
 resource "google_compute_region_target_https_proxy" "default" {
-  count            = var.protocol == "HTTPS" ? 1 : 0
-  project          = var.project_id
-  region           = var.region
-  name             = var.name
-  description      = var.description
-  ssl_certificates = local.proxy_ssl_certificates
-  url_map          = google_compute_region_url_map.default.id
+  count                            = var.protocol == "HTTPS" ? 1 : 0
+  project                          = var.project_id
+  region                           = var.region
+  name                             = var.name
+  description                      = var.description
+  certificate_manager_certificates = var.https_proxy_config.certificate_manager_certificates
+  ssl_policy                       = var.https_proxy_config.ssl_policy
+  url_map                          = google_compute_region_url_map.default.id
 }
 
 resource "google_compute_service_attachment" "default" {

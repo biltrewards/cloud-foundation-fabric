@@ -182,6 +182,16 @@ variable "service_directory_registration" {
   default = null
 }
 
+variable "https_proxy_config" {
+  description = "HTTPS proxy connfiguration."
+  type = object({
+    certificate_manager_certificates = optional(list(string), [])
+    ssl_policy                       = optional(string)
+  })
+  default  = {}
+  nullable = false
+}
+
 variable "ssl_certificates" {
   description = "SSL target proxy certificates (only if protocol is HTTPS)."
   type = object({
