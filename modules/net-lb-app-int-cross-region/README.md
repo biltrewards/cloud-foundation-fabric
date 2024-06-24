@@ -1,4 +1,4 @@
-# Internal Application Load Balancer Module
+# Cross-region Internal Application Load Balancer Module
 
 This module allows managing Cross-regional Internal HTTP/HTTPS Load Balancers (L7 ILBs). It's designed to expose the full configuration of the underlying resources, and to facilitate common usage patterns by providing sensible defaults, and optionally managing prerequisite resources like health checks, instance groups, etc.
 
@@ -19,6 +19,7 @@ Due to the complexity of the underlying resources, changes to the configuration 
     - [Private Service Connect NEG creation](#private-service-connect-neg-creation)
   - [URL Map](#url-map)
   - [Complex example](#complex-example)
+- [Deploying changes to load balancer configurations](#deploying-changes-to-load-balancer-configurations)
 - [Recipes](#recipes)
 - [Files](#files)
 - [Variables](#variables)
@@ -351,7 +352,7 @@ module "ilb-l7" {
     }
   }
 }
-# tftest modules=1 resources=12
+# tftest modules=1 resources=12 inventory=zonal-neg.yaml
 ```
 
 #### Hybrid NEG creation
@@ -719,6 +720,9 @@ module "ilb-l7" {
 }
 # tftest modules=1 resources=19
 ```
+
+## Deploying changes to load balancer configurations
+For deploying changes to load balancer configuration please refer to [net-lb-app-ext README.md](../net-lb-app-ext/README.md#deploying-changes-to-load-balancer-configurations)
 
 <!-- TFDOC OPTS files:1 -->
 <!-- BEGIN TFDOC -->

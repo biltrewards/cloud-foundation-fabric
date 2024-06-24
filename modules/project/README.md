@@ -18,7 +18,8 @@ This module implements the creation and management of one GCP project including 
 - [Log Sinks](#log-sinks)
 - [Data Access Logs](#data-access-logs)
 - [Cloud KMS Encryption Keys](#cloud-kms-encryption-keys)
-- [Attaching Tags](#attaching-tags)
+- [Tags](#tags)
+- [Tag Bindings](#tag-bindings)
 - [Project-scoped Tags](#project-scoped-tags)
 - [Custom Roles](#custom-roles)
   - [Custom Roles Factory](#custom-roles-factory)
@@ -543,6 +544,7 @@ module "gcs" {
   source        = "./fabric/modules/gcs"
   project_id    = var.project_id
   name          = "gcs_sink"
+  location      = "EU"
   prefix        = var.prefix
   force_destroy = true
 }
@@ -678,9 +680,113 @@ module "project" {
 # tftest modules=1 resources=6 e2e
 ```
 
-## Attaching Tags
+## Tags
 
-You can attach secure tags to a project with the `tag_bindings` attribute
+Refer to the [Creating and managing tags](https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing) documentation for details on usage.
+
+```hcl
+module "project" {
+  source          = "./fabric/modules/project"
+  billing_account = var.billing_account_id
+  name            = "project"
+  prefix          = var.prefix
+  parent          = var.folder_id
+  services = [
+    "compute.googleapis.com",
+  ]
+  tags = {
+    environment = {
+      description = "Environment specification."
+      iam = {
+        "roles/resourcemanager.tagAdmin" = ["group:${var.group_email}"]
+      }
+      iam_bindings = {
+        viewer = {
+          role    = "roles/resourcemanager.tagViewer"
+          members = ["group:gcp-support@example.org"]
+        }
+      }
+      iam_bindings_additive = {
+        user_app1 = {
+          role   = "roles/resourcemanager.tagUser"
+          member = "group:app1-team@example.org"
+        }
+      }
+      values = {
+        dev = {
+          iam_bindings_additive = {
+            user_app2 = {
+              role   = "roles/resourcemanager.tagUser"
+              member = "group:app2-team@example.org"
+            }
+          }
+        }
+        prod = {
+          description = "Environment: production."
+          iam = {
+            "roles/resourcemanager.tagViewer" = ["group:app1-team@example.org"]
+          }
+          iam_bindings = {
+            admin = {
+              role    = "roles/resourcemanager.tagAdmin"
+              members = ["group:gcp-support@example.org"]
+              condition = {
+                title      = "gcp_support"
+                expression = <<-END
+                  request.time.getHours("Europe/Berlin") <= 9 &&
+                  request.time.getHours("Europe/Berlin") >= 17
+                END
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  tag_bindings = {
+    env-prod = module.project.tag_values["environment/prod"].id
+  }
+}
+# tftest modules=1 resources=12 inventory=tags.yaml
+```
+
+You can also define network tags through the dedicated `network_tags` variable:
+
+```hcl
+module "project" {
+  source          = "./fabric/modules/project"
+  billing_account = var.billing_account_id
+  name            = "project"
+  prefix          = var.prefix
+  parent          = var.folder_id
+  services = [
+    "compute.googleapis.com"
+  ]
+  network_tags = {
+    net-environment = {
+      description = "This is a network tag."
+      network     = "${var.project_id}/${var.vpc.name}"
+      iam = {
+        "roles/resourcemanager.tagAdmin" = ["group:${var.group_email}"]
+      }
+      values = {
+        dev = {}
+        prod = {
+          description = "Environment: production."
+          iam = {
+            "roles/resourcemanager.tagUser" = ["group:${var.group_email}"]
+          }
+        }
+      }
+    }
+  }
+}
+# tftest modules=1 resources=7 inventory=tags-network.yaml
+```
+
+## Tag Bindings
+
+You can bind secure tags to a project with the `tag_bindings` attribute
 
 ```hcl
 module "org" {
@@ -1133,6 +1239,7 @@ module "gcs" {
   source        = "./fabric/modules/gcs"
   project_id    = var.project_id
   name          = "gcs_sink"
+  location      = "EU"
   prefix        = var.prefix
   force_destroy = true
 }
@@ -1173,7 +1280,7 @@ module "bucket" {
 | [quotas.tf](./quotas.tf) | None | <code>google_cloud_quotas_quota_preference</code> |
 | [service-accounts.tf](./service-accounts.tf) | Service identities and supporting resources. | <code>google_kms_crypto_key_iam_member</code> · <code>google_project_default_service_accounts</code> · <code>google_project_iam_member</code> · <code>google_project_service_identity</code> |
 | [shared-vpc.tf](./shared-vpc.tf) | Shared VPC project-level configuration. | <code>google_compute_shared_vpc_host_project</code> · <code>google_compute_shared_vpc_service_project</code> · <code>google_compute_subnetwork_iam_member</code> · <code>google_project_iam_member</code> |
-| [tags.tf](./tags.tf) | None | <code>google_tags_tag_binding</code> · <code>google_tags_tag_key</code> · <code>google_tags_tag_key_iam_binding</code> · <code>google_tags_tag_value</code> · <code>google_tags_tag_value_iam_binding</code> |
+| [tags.tf](./tags.tf) | None | <code>google_tags_tag_binding</code> · <code>google_tags_tag_key</code> · <code>google_tags_tag_key_iam_binding</code> · <code>google_tags_tag_key_iam_member</code> · <code>google_tags_tag_value</code> · <code>google_tags_tag_value_iam_binding</code> · <code>google_tags_tag_value_iam_member</code> |
 | [variables-iam.tf](./variables-iam.tf) | None |  |
 | [variables-quotas.tf](./variables-quotas.tf) | None |  |
 | [variables-tags.tf](./variables-tags.tf) | None |  |
@@ -1204,7 +1311,7 @@ module "bucket" {
 | [logging_exclusions](variables.tf#L108) | Logging exclusions for this project in the form {NAME -> FILTER}. | <code>map&#40;string&#41;</code> |  | <code>&#123;&#125;</code> |
 | [logging_sinks](variables.tf#L115) | Logging sinks to create for this project. | <code title="map&#40;object&#40;&#123;&#10;  bq_partitioned_table &#61; optional&#40;bool, false&#41;&#10;  description          &#61; optional&#40;string&#41;&#10;  destination          &#61; string&#10;  disabled             &#61; optional&#40;bool, false&#41;&#10;  exclusions           &#61; optional&#40;map&#40;string&#41;, &#123;&#125;&#41;&#10;  filter               &#61; optional&#40;string&#41;&#10;  iam                  &#61; optional&#40;bool, true&#41;&#10;  type                 &#61; string&#10;  unique_writer        &#61; optional&#40;bool, true&#41;&#10;&#125;&#41;&#41;">map&#40;object&#40;&#123;&#8230;&#125;&#41;&#41;</code> |  | <code>&#123;&#125;</code> |
 | [metric_scopes](variables.tf#L146) | List of projects that will act as metric scopes for this project. | <code>list&#40;string&#41;</code> |  | <code>&#91;&#93;</code> |
-| [network_tags](variables-tags.tf#L17) | Network tags by key name. If `id` is provided, key creation is skipped. The `iam` attribute behaves like the similarly named one at module level. | <code title="map&#40;object&#40;&#123;&#10;  description &#61; optional&#40;string, &#34;Managed by the Terraform project module.&#34;&#41;&#10;  iam         &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;  id          &#61; optional&#40;string&#41;&#10;  network     &#61; string &#35; project_id&#47;vpc_name&#10;  values &#61; optional&#40;map&#40;object&#40;&#123;&#10;    description &#61; optional&#40;string, &#34;Managed by the Terraform project module.&#34;&#41;&#10;    iam         &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;  &#125;&#41;&#41;, &#123;&#125;&#41;&#10;&#125;&#41;&#41;">map&#40;object&#40;&#123;&#8230;&#125;&#41;&#41;</code> |  | <code>&#123;&#125;</code> |
+| [network_tags](variables-tags.tf#L17) | Network tags by key name. If `id` is provided, key creation is skipped. The `iam` attribute behaves like the similarly named one at module level. | <code title="map&#40;object&#40;&#123;&#10;  description &#61; optional&#40;string, &#34;Managed by the Terraform project module.&#34;&#41;&#10;  iam         &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;  iam_bindings &#61; optional&#40;map&#40;object&#40;&#123;&#10;    members &#61; list&#40;string&#41;&#10;    role    &#61; string&#10;    condition &#61; optional&#40;object&#40;&#123;&#10;      expression  &#61; string&#10;      title       &#61; string&#10;      description &#61; optional&#40;string&#41;&#10;    &#125;&#41;&#41;&#10;  &#125;&#41;&#41;, &#123;&#125;&#41;&#10;  iam_bindings_additive &#61; optional&#40;map&#40;object&#40;&#123;&#10;    member &#61; string&#10;    role   &#61; string&#10;    condition &#61; optional&#40;object&#40;&#123;&#10;      expression  &#61; string&#10;      title       &#61; string&#10;      description &#61; optional&#40;string&#41;&#10;    &#125;&#41;&#41;&#10;  &#125;&#41;&#41;, &#123;&#125;&#41;&#10;  id      &#61; optional&#40;string&#41;&#10;  network &#61; string &#35; project_id&#47;vpc_name&#10;  values &#61; optional&#40;map&#40;object&#40;&#123;&#10;    description &#61; optional&#40;string, &#34;Managed by the Terraform project module.&#34;&#41;&#10;    iam         &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;    iam_bindings &#61; optional&#40;map&#40;object&#40;&#123;&#10;      members &#61; list&#40;string&#41;&#10;      role    &#61; string&#10;      condition &#61; optional&#40;object&#40;&#123;&#10;        expression  &#61; string&#10;        title       &#61; string&#10;        description &#61; optional&#40;string&#41;&#10;      &#125;&#41;&#41;&#10;    &#125;&#41;&#41;, &#123;&#125;&#41;&#10;    iam_bindings_additive &#61; optional&#40;map&#40;object&#40;&#123;&#10;      member &#61; string&#10;      role   &#61; string&#10;      condition &#61; optional&#40;object&#40;&#123;&#10;        expression  &#61; string&#10;        title       &#61; string&#10;        description &#61; optional&#40;string&#41;&#10;      &#125;&#41;&#41;&#10;    &#125;&#41;&#41;, &#123;&#125;&#41;&#10;  &#125;&#41;&#41;, &#123;&#125;&#41;&#10;&#125;&#41;&#41;">map&#40;object&#40;&#123;&#8230;&#125;&#41;&#41;</code> |  | <code>&#123;&#125;</code> |
 | [org_policies](variables.tf#L158) | Organization policies applied to this project keyed by policy name. | <code title="map&#40;object&#40;&#123;&#10;  inherit_from_parent &#61; optional&#40;bool&#41; &#35; for list policies only.&#10;  reset               &#61; optional&#40;bool&#41;&#10;  rules &#61; optional&#40;list&#40;object&#40;&#123;&#10;    allow &#61; optional&#40;object&#40;&#123;&#10;      all    &#61; optional&#40;bool&#41;&#10;      values &#61; optional&#40;list&#40;string&#41;&#41;&#10;    &#125;&#41;&#41;&#10;    deny &#61; optional&#40;object&#40;&#123;&#10;      all    &#61; optional&#40;bool&#41;&#10;      values &#61; optional&#40;list&#40;string&#41;&#41;&#10;    &#125;&#41;&#41;&#10;    enforce &#61; optional&#40;bool&#41; &#35; for boolean policies only.&#10;    condition &#61; optional&#40;object&#40;&#123;&#10;      description &#61; optional&#40;string&#41;&#10;      expression  &#61; optional&#40;string&#41;&#10;      location    &#61; optional&#40;string&#41;&#10;      title       &#61; optional&#40;string&#41;&#10;    &#125;&#41;, &#123;&#125;&#41;&#10;  &#125;&#41;&#41;, &#91;&#93;&#41;&#10;&#125;&#41;&#41;">map&#40;object&#40;&#123;&#8230;&#125;&#41;&#41;</code> |  | <code>&#123;&#125;</code> |
 | [parent](variables.tf#L185) | Parent folder or organization in 'folders/folder_id' or 'organizations/org_id' format. | <code>string</code> |  | <code>null</code> |
 | [prefix](variables.tf#L195) | Optional prefix used to generate project id and name. | <code>string</code> |  | <code>null</code> |
@@ -1216,8 +1323,8 @@ module "bucket" {
 | [shared_vpc_host_config](variables.tf#L235) | Configures this project as a Shared VPC host project (mutually exclusive with shared_vpc_service_project). | <code title="object&#40;&#123;&#10;  enabled          &#61; bool&#10;  service_projects &#61; optional&#40;list&#40;string&#41;, &#91;&#93;&#41;&#10;&#125;&#41;">object&#40;&#123;&#8230;&#125;&#41;</code> |  | <code>null</code> |
 | [shared_vpc_service_config](variables.tf#L244) | Configures this project as a Shared VPC service project (mutually exclusive with shared_vpc_host_config). | <code title="object&#40;&#123;&#10;  host_project                &#61; string&#10;  network_users               &#61; optional&#40;list&#40;string&#41;, &#91;&#93;&#41;&#10;  service_identity_iam        &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;  service_identity_subnet_iam &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;  service_iam_grants          &#61; optional&#40;list&#40;string&#41;, &#91;&#93;&#41;&#10;  network_subnet_users        &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;&#125;&#41;">object&#40;&#123;&#8230;&#125;&#41;</code> |  | <code title="&#123;&#10;  host_project &#61; null&#10;&#125;">&#123;&#8230;&#125;</code> |
 | [skip_delete](variables.tf#L272) | Allows the underlying resources to be destroyed without destroying the project itself. | <code>bool</code> |  | <code>false</code> |
-| [tag_bindings](variables-tags.tf#L45) | Tag bindings for this project, in key => tag value id format. | <code>map&#40;string&#41;</code> |  | <code>null</code> |
-| [tags](variables-tags.tf#L51) | Tags by key name. If `id` is provided, key or value creation is skipped. The `iam` attribute behaves like the similarly named one at module level. | <code title="map&#40;object&#40;&#123;&#10;  description &#61; optional&#40;string, &#34;Managed by the Terraform project module.&#34;&#41;&#10;  iam         &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;  id          &#61; optional&#40;string&#41;&#10;  values &#61; optional&#40;map&#40;object&#40;&#123;&#10;    description &#61; optional&#40;string, &#34;Managed by the Terraform project module.&#34;&#41;&#10;    iam         &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;    id          &#61; optional&#40;string&#41;&#10;  &#125;&#41;&#41;, &#123;&#125;&#41;&#10;&#125;&#41;&#41;">map&#40;object&#40;&#123;&#8230;&#125;&#41;&#41;</code> |  | <code>&#123;&#125;</code> |
+| [tag_bindings](variables-tags.tf#L81) | Tag bindings for this project, in key => tag value id format. | <code>map&#40;string&#41;</code> |  | <code>null</code> |
+| [tags](variables-tags.tf#L88) | Tags by key name. If `id` is provided, key or value creation is skipped. The `iam` attribute behaves like the similarly named one at module level. | <code title="map&#40;object&#40;&#123;&#10;  description &#61; optional&#40;string, &#34;Managed by the Terraform project module.&#34;&#41;&#10;  iam         &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;  iam_bindings &#61; optional&#40;map&#40;object&#40;&#123;&#10;    members &#61; list&#40;string&#41;&#10;    role    &#61; string&#10;    condition &#61; optional&#40;object&#40;&#123;&#10;      expression  &#61; string&#10;      title       &#61; string&#10;      description &#61; optional&#40;string&#41;&#10;    &#125;&#41;&#41;&#10;  &#125;&#41;&#41;, &#123;&#125;&#41;&#10;  iam_bindings_additive &#61; optional&#40;map&#40;object&#40;&#123;&#10;    member &#61; string&#10;    role   &#61; string&#10;    condition &#61; optional&#40;object&#40;&#123;&#10;      expression  &#61; string&#10;      title       &#61; string&#10;      description &#61; optional&#40;string&#41;&#10;    &#125;&#41;&#41;&#10;  &#125;&#41;&#41;, &#123;&#125;&#41;&#10;  id &#61; optional&#40;string&#41;&#10;  values &#61; optional&#40;map&#40;object&#40;&#123;&#10;    description &#61; optional&#40;string, &#34;Managed by the Terraform project module.&#34;&#41;&#10;    iam         &#61; optional&#40;map&#40;list&#40;string&#41;&#41;, &#123;&#125;&#41;&#10;    iam_bindings &#61; optional&#40;map&#40;object&#40;&#123;&#10;      members &#61; list&#40;string&#41;&#10;      role    &#61; string&#10;      condition &#61; optional&#40;object&#40;&#123;&#10;        expression  &#61; string&#10;        title       &#61; string&#10;        description &#61; optional&#40;string&#41;&#10;      &#125;&#41;&#41;&#10;    &#125;&#41;&#41;, &#123;&#125;&#41;&#10;    iam_bindings_additive &#61; optional&#40;map&#40;object&#40;&#123;&#10;      member &#61; string&#10;      role   &#61; string&#10;      condition &#61; optional&#40;object&#40;&#123;&#10;        expression  &#61; string&#10;        title       &#61; string&#10;        description &#61; optional&#40;string&#41;&#10;      &#125;&#41;&#41;&#10;    &#125;&#41;&#41;, &#123;&#125;&#41;&#10;    id &#61; optional&#40;string&#41;&#10;  &#125;&#41;&#41;, &#123;&#125;&#41;&#10;&#125;&#41;&#41;">map&#40;object&#40;&#123;&#8230;&#125;&#41;&#41;</code> |  | <code>&#123;&#125;</code> |
 | [vpc_sc](variables.tf#L278) | VPC-SC configuration for the project, use when `ignore_changes` for resources is set in the VPC-SC module. | <code title="object&#40;&#123;&#10;  perimeter_name    &#61; string&#10;  perimeter_bridges &#61; optional&#40;list&#40;string&#41;, &#91;&#93;&#41;&#10;  is_dry_run        &#61; optional&#40;bool, false&#41;&#10;&#125;&#41;">object&#40;&#123;&#8230;&#125;&#41;</code> |  | <code>null</code> |
 
 ## Outputs
@@ -1228,13 +1335,15 @@ module "bucket" {
 | [custom_roles](outputs.tf#L27) | Map of custom roles resources created in the project. |  |
 | [id](outputs.tf#L32) | Project id. |  |
 | [name](outputs.tf#L51) | Project name. |  |
-| [number](outputs.tf#L63) | Project number. |  |
-| [project_id](outputs.tf#L82) | Project id. |  |
-| [quota_configs](outputs.tf#L101) | Quota configurations. |  |
-| [quotas](outputs.tf#L112) | Quota resources. |  |
-| [service_accounts](outputs.tf#L117) | Product robot service accounts in project. |  |
-| [services](outputs.tf#L133) | Service APIs to enabled in the project. |  |
-| [sink_writer_identities](outputs.tf#L142) | Writer identities created for each sink. |  |
-| [tag_keys](outputs.tf#L149) | Tag key resources. |  |
-| [tag_values](outputs.tf#L158) | Tag value resources. |  |
+| [network_tag_keys](outputs.tf#L63) | Tag key resources. |  |
+| [network_tag_values](outputs.tf#L72) | Tag value resources. |  |
+| [number](outputs.tf#L80) | Project number. |  |
+| [project_id](outputs.tf#L99) | Project id. |  |
+| [quota_configs](outputs.tf#L118) | Quota configurations. |  |
+| [quotas](outputs.tf#L129) | Quota resources. |  |
+| [service_accounts](outputs.tf#L134) | Product robot service accounts in project. |  |
+| [services](outputs.tf#L150) | Service APIs to enabled in the project. |  |
+| [sink_writer_identities](outputs.tf#L159) | Writer identities created for each sink. |  |
+| [tag_keys](outputs.tf#L166) | Tag key resources. |  |
+| [tag_values](outputs.tf#L175) | Tag value resources. |  |
 <!-- END TFDOC -->

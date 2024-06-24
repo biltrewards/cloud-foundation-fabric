@@ -1,5 +1,5 @@
 /**
- * Copyright 2023 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ variable "backup_configs" {
       encryption_key                    = optional(string)
       include_secrets                   = optional(bool, true)
       include_volume_data               = optional(bool, true)
+      labels                            = optional(map(string))
       namespaces                        = optional(list(string))
       schedule                          = optional(string)
       retention_policy_days             = optional(number)
@@ -161,6 +162,7 @@ variable "enable_addons" {
     }))
     kalm           = optional(bool, false)
     network_policy = optional(bool, false)
+    stateful_ha    = optional(bool, false)
   })
   default = {
     horizontal_pod_autoscaling = true
@@ -228,7 +230,8 @@ variable "issue_client_certificate" {
 variable "labels" {
   description = "Cluster resource labels."
   type        = map(string)
-  default     = null
+  default     = {}
+  nullable    = false
 }
 
 variable "location" {
@@ -312,7 +315,6 @@ variable "monitoring_config" {
     advanced_datapath_observability = optional(object({
       enable_metrics = bool
       enable_relay   = optional(bool)
-      relay_mode     = optional(string)
     }))
   })
   default  = {}
@@ -375,10 +377,13 @@ variable "node_config" {
   description = "Node-level configuration."
   type = object({
     boot_disk_kms_key = optional(string)
+    k8s_labels        = optional(map(string))
+    labels            = optional(map(string))
     service_account   = optional(string)
     tags              = optional(list(string))
   })
-  default = {}
+  default  = {}
+  nullable = false
 }
 
 variable "node_locations" {
@@ -427,6 +432,7 @@ variable "vpc_config" {
       pods     = optional(string, "pods")
       services = optional(string, "services")
     }))
+    additional_ranges        = optional(list(string))
     master_authorized_ranges = optional(map(string))
     stack_type               = optional(string)
   })

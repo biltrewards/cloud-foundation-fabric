@@ -17,8 +17,10 @@
 # tfdoc:file:description Automation project and resources.
 
 locals {
-  cicd_resman_sa   = try(module.automation-tf-cicd-sa["resman"].iam_email, "")
-  cicd_resman_r_sa = try(module.automation-tf-cicd-r-sa["resman"].iam_email, "")
+  cicd_resman_sa    = try(module.automation-tf-cicd-sa["resman"].iam_email, "")
+  cicd_resman_r_sa  = try(module.automation-tf-cicd-r-sa["resman"].iam_email, "")
+  cicd_tenants_sa   = try(module.automation-tf-cicd-sa["tenants"].iam_email, "")
+  cicd_tenants_r_sa = try(module.automation-tf-cicd-r-sa["tenants"].iam_email, "")
 }
 
 module "automation-project" {
@@ -143,7 +145,6 @@ module "automation-project" {
       "pubsub.googleapis.com",
       "servicenetworking.googleapis.com",
       "serviceusage.googleapis.com",
-      "sourcerepo.googleapis.com",
       "stackdriver.googleapis.com",
       "storage-component.googleapis.com",
       "storage.googleapis.com",
@@ -269,10 +270,16 @@ module "automation-tf-resman-sa" {
   prefix       = local.prefix
   # allow SA used by CI/CD workflow to impersonate this SA
   # we use additive IAM to allow tenant CI/CD SAs to impersonate it
-  iam_bindings_additive = (
+  iam_bindings_additive = merge(
     local.cicd_resman_sa == "" ? {} : {
       cicd_token_creator = {
         member = local.cicd_resman_sa
+        role   = "roles/iam.serviceAccountTokenCreator"
+      }
+    },
+    local.cicd_tenants_sa == "" ? {} : {
+      cicd_token_creator = {
+        member = local.cicd_tenants_sa
         role   = "roles/iam.serviceAccountTokenCreator"
       }
     }
@@ -290,10 +297,16 @@ module "automation-tf-resman-r-sa" {
   prefix       = local.prefix
   # allow SA used by CI/CD workflow to impersonate this SA
   # we use additive IAM to allow tenant CI/CD SAs to impersonate it
-  iam_bindings_additive = (
+  iam_bindings_additive = merge(
     local.cicd_resman_r_sa == "" ? {} : {
       cicd_token_creator = {
         member = local.cicd_resman_r_sa
+        role   = "roles/iam.serviceAccountTokenCreator"
+      }
+    },
+    local.cicd_tenants_r_sa == "" ? {} : {
+      cicd_token_creator = {
+        member = local.cicd_tenants_r_sa
         role   = "roles/iam.serviceAccountTokenCreator"
       }
     }
