@@ -51,28 +51,33 @@ resource "google_vpc_access_connector" "connector" {
 }
 
 resource "google_cloudfunctions_function" "function" {
-  project                      = var.project_id
-  region                       = var.region
-  name                         = "${local.prefix}${var.name}"
-  description                  = var.description
-  runtime                      = var.function_config.runtime
-  available_memory_mb          = var.function_config.memory_mb
-  max_instances                = var.function_config.instance_count
-  timeout                      = var.function_config.timeout_seconds
-  entry_point                  = var.function_config.entry_point
-  environment_variables        = var.environment_variables
-  service_account_email        = local.service_account_email
-  source_archive_bucket        = local.bucket
-  source_archive_object        = google_storage_bucket_object.bundle.name
+  project               = var.project_id
+  region                = var.region
+  name                  = "${local.prefix}${var.name}"
+  description           = var.description
+  runtime               = var.function_config.runtime
+  available_memory_mb   = var.function_config.memory_mb
+  max_instances         = var.function_config.instance_count
+  timeout               = var.function_config.timeout_seconds
+  entry_point           = var.function_config.entry_point
+  environment_variables = var.environment_variables
+  service_account_email = local.service_account_email
+  source_archive_bucket = local.bucket
+  source_archive_object = (
+    local.bundle_type == "gcs"
+    ? replace(var.bundle_config.path, "/^gs:\\/\\/[^\\/]+\\//", "")
+    : google_storage_bucket_object.bundle[0].name
+  )
   labels                       = var.labels
   trigger_http                 = var.trigger_config == null ? true : null
   https_trigger_security_level = var.https_security_level == null ? "SECURE_ALWAYS" : var.https_security_level
-
-  ingress_settings            = var.ingress_settings
-  build_worker_pool           = var.build_worker_pool
-  build_environment_variables = var.build_environment_variables
-
-  vpc_connector = local.vpc_connector
+  ingress_settings             = var.ingress_settings
+  build_worker_pool            = var.build_worker_pool
+  build_environment_variables  = var.build_environment_variables
+  kms_key_name                 = var.kms_key
+  docker_registry              = try(var.repository_settings.registry, "ARTIFACT_REGISTRY")
+  docker_repository            = try(var.repository_settings.repository, null)
+  vpc_connector                = local.vpc_connector
   vpc_connector_egress_settings = try(
     var.vpc_connector.egress_settings, null
   )
@@ -128,51 +133,6 @@ resource "google_cloudfunctions_function_iam_binding" "default" {
   cloud_function = google_cloudfunctions_function.function.id
   role           = each.key
   members        = each.value
-}
-
-resource "google_storage_bucket" "bucket" {
-  count                       = var.bucket_config == null ? 0 : 1
-  project                     = var.project_id
-  name                        = "${local.prefix}${var.bucket_name}"
-  uniform_bucket_level_access = true
-  location = (
-    var.bucket_config.location == null
-    ? var.region
-    : var.bucket_config.location
-  )
-  labels = var.labels
-
-  dynamic "lifecycle_rule" {
-    for_each = var.bucket_config.lifecycle_delete_age_days == null ? [] : [""]
-    content {
-      action { type = "Delete" }
-      condition {
-        age        = var.bucket_config.lifecycle_delete_age_days
-        with_state = "ARCHIVED"
-      }
-    }
-  }
-
-  dynamic "versioning" {
-    for_each = var.bucket_config.lifecycle_delete_age_days == null ? [] : [""]
-    content {
-      enabled = true
-    }
-  }
-}
-
-resource "google_storage_bucket_object" "bundle" {
-  name   = "bundle-${data.archive_file.bundle.output_md5}.zip"
-  bucket = local.bucket
-  source = data.archive_file.bundle.output_path
-}
-
-data "archive_file" "bundle" {
-  type             = "zip"
-  source_dir       = var.bundle_config.source_dir
-  output_path      = coalesce(var.bundle_config.output_path, "/tmp/bundle-${var.project_id}-${var.name}.zip")
-  output_file_mode = "0644"
-  excludes         = var.bundle_config.excludes
 }
 
 resource "google_service_account" "service_account" {

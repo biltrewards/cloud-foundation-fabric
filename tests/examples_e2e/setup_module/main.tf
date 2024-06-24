@@ -15,10 +15,13 @@
 locals {
   prefix = "${var.prefix}-${var.timestamp}${var.suffix}"
   jit_services = [
-    "storage.googleapis.com", # no permissions granted by default
+    "alloydb.googleapis.com",  # no permissions granted by default
+    "storage.googleapis.com",  # no permissions granted by default
+    "sqladmin.googleapis.com", # roles/cloudsql.serviceAgent
   ]
   services = [
     # trimmed down list of services, to be extended as needed
+    "alloydb.googleapis.com",
     "apigee.googleapis.com",
     "bigquery.googleapis.com",
     "cloudbuild.googleapis.com",
@@ -35,6 +38,7 @@ locals {
     "secretmanager.googleapis.com",
     "servicenetworking.googleapis.com",
     "serviceusage.googleapis.com",
+    "sqladmin.googleapis.com",
     "stackdriver.googleapis.com",
     "storage-component.googleapis.com",
     "storage.googleapis.com",
@@ -114,6 +118,36 @@ resource "google_compute_subnetwork" "proxy_only_regional" {
   role          = "ACTIVE"
 }
 
+resource "google_compute_subnetwork" "psc" {
+  project       = google_project.project.project_id
+  network       = google_compute_network.network.name
+  name          = "psc-regional"
+  region        = var.region
+  ip_cidr_range = "10.0.19.0/24"
+  purpose       = "PRIVATE_SERVICE_CONNECT"
+}
+
+### PSA ###
+
+resource "google_compute_global_address" "psa_ranges" {
+  project       = google_project.project.project_id
+  network       = google_compute_network.network.id
+  name          = "psa-range"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  address       = "10.0.20.0"
+  prefix_length = 22
+}
+
+resource "google_service_networking_connection" "psa_connection" {
+  network                 = google_compute_network.network.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.psa_ranges.name]
+  deletion_policy         = "ABANDON"
+}
+
+### END OF PSA
+
 resource "google_service_account" "service_account" {
   account_id = "e2e-service-account"
   project    = google_project.project.project_id
@@ -141,6 +175,12 @@ resource "google_project_service_identity" "jit_si" {
   depends_on = [google_project_service.project_service]
 }
 
+resource "google_project_iam_binding" "cloudsql_agent" {
+  members    = ["serviceAccount:service-${google_project.project.number}@gcp-sa-cloud-sql.iam.gserviceaccount.com"]
+  project    = google_project.project.project_id
+  role       = "roles/cloudsql.serviceAgent"
+  depends_on = [google_project_service_identity.jit_si]
+}
 
 resource "local_file" "terraform_tfvars" {
   filename = "e2e_tests.tfvars"
@@ -149,14 +189,18 @@ resource "local_file" "terraform_tfvars" {
     billing_account_id = var.billing_account
     folder_id          = google_folder.folder.folder_id
     group_email        = var.group_email
-    kms_key_id         = google_kms_crypto_key.key.id
     keyring = {
       name = google_kms_key_ring.keyring.name
     }
+    kms_key_id      = google_kms_crypto_key.key.id
     organization_id = var.organization_id
     project_id      = google_project.project.project_id
     project_number  = google_project.project.number
     region          = var.region
+    regions = {
+      primary   = var.region
+      secondary = var.region_secondary
+    }
     service_account = {
       id        = google_service_account.service_account.id
       email     = google_service_account.service_account.email
@@ -167,6 +211,12 @@ resource "local_file" "terraform_tfvars" {
       region        = google_compute_subnetwork.subnetwork.region
       ip_cidr_range = google_compute_subnetwork.subnetwork.ip_cidr_range
       self_link     = google_compute_subnetwork.subnetwork.self_link
+    }
+    subnet_psc_1 = {
+      name          = google_compute_subnetwork.psc.name
+      region        = google_compute_subnetwork.psc.region
+      ip_cidr_range = google_compute_subnetwork.psc.ip_cidr_range
+      self_link     = google_compute_subnetwork.psc.self_link
     }
     vpc = {
       name      = google_compute_network.network.name

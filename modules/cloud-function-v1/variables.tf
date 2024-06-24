@@ -42,12 +42,36 @@ variable "build_worker_pool" {
 }
 
 variable "bundle_config" {
-  description = "Cloud function source folder and generated zip bundle paths. Output path defaults to '/tmp/bundle.zip' if null."
+  description = "Cloud function source. Path can point to a GCS object URI, or a local path. A local path to a zip archive will generate a GCS object using its basename, a folder will be zipped and the GCS object name inferred when not specified."
   type = object({
-    source_dir  = string
-    output_path = optional(string)
-    excludes    = optional(list(string))
+    path = string
+    folder_options = optional(object({
+      archive_path = optional(string)
+      excludes     = optional(list(string))
+    }), {})
   })
+  nullable = false
+  validation {
+    condition = (
+      var.bundle_config.path != null && (
+        # GCS object
+        (
+          startswith(var.bundle_config.path, "gs://") &&
+          endswith(var.bundle_config.path, ".zip")
+        )
+        ||
+        # local folder
+        length(fileset(pathexpand(var.bundle_config.path), "**/*")) > 0
+        ||
+        # local ZIP archive
+        (
+          try(fileexists(pathexpand(var.bundle_config.path)), null) != null &&
+          endswith(var.bundle_config.path, ".zip")
+        )
+      )
+    )
+    error_message = "Bundle path must be set to a GCS object URI, a local folder or a local zip file."
+  }
 }
 
 variable "description" {
@@ -100,6 +124,12 @@ variable "ingress_settings" {
   default     = null
 }
 
+variable "kms_key" {
+  description = "Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt function resources in key id format. If specified, you must also provide an artifact registry repository using the docker_repository field that was created with the same KMS crypto key."
+  type        = string
+  default     = null
+}
+
 variable "labels" {
   description = "Resource labels."
   type        = map(string)
@@ -129,6 +159,17 @@ variable "project_id" {
 variable "region" {
   description = "Region used for all resources."
   type        = string
+}
+
+variable "repository_settings" {
+  description = "Docker Registry to use for storing the function's Docker images and specific repository. If kms_key is provided, the repository must have already been encrypted with the key."
+  type = object({
+    registry   = optional(string)
+    repository = optional(string)
+  })
+  default = {
+    registry = "ARTIFACT_REGISTRY"
+  }
 }
 
 variable "secrets" {

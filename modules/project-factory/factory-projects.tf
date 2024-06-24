@@ -87,6 +87,14 @@ locals {
         try(v.services, null),
         var.data_defaults.services
       )
+      shared_vpc_host_config = (
+        try(v.shared_vpc_host_config, null) != null
+        ? merge(
+          { service_projects = [] },
+          v.shared_vpc_host_config
+        )
+        : null
+      )
       shared_vpc_service_config = (
         try(v.shared_vpc_service_config, null) != null
         ? merge(
@@ -109,7 +117,14 @@ locals {
       vpc_sc = (
         var.data_overrides.vpc_sc != null
         ? var.data_overrides.vpc_sc
-        : try(v.vpc_sc, var.data_defaults.vpc_sc, null)
+        : (
+          try(v.vpc_sc, null) != null
+          ? merge({
+            perimeter_bridges = []
+            is_dry_run        = false
+          }, v.vpc_sc)
+          : var.data_defaults.vpc_sc
+        )
       )
       # non-project resources
       service_accounts = try(v.service_accounts, {})

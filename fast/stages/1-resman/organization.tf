@@ -38,6 +38,7 @@ locals {
 
 module "organization" {
   source          = "../../../modules/organization"
+  count           = var.root_node == null ? 1 : 0
   organization_id = "organizations/${var.organization.id}"
   # additive bindings via delegated IAM grant set in stage 0
   iam_bindings_additive = local.iam_bindings_additive
@@ -46,34 +47,40 @@ module "organization" {
   tags = merge(local.tags, {
     (var.tag_names.context) = {
       description = "Resource management context."
-      iam         = {}
+      iam         = try(local.tags.context.iam, {})
       values = {
-        data       = {}
-        gke        = {}
-        gcve       = {}
-        networking = {}
-        sandbox    = {}
-        security   = {}
-        teams      = {}
-        tenant     = {}
+        data = {
+          iam = try(local.tags.context.values.data.iam, {})
+        }
+        gke = {
+          iam = try(local.tags.context.values.gke.iam, {})
+        }
+        gcve = {
+          iam = try(local.tags.context.values.gcve.iam, {})
+        }
+        networking = {
+          iam = try(local.tags.context.values.networking.iam, {})
+        }
+        project-factory = {
+          iam = try(local.tags.context.values.project-factory.iam, {})
+        }
+        sandbox = {
+          iam = try(local.tags.context.values.sandbox.iam, {})
+        }
+        security = {
+          iam = try(local.tags.context.values.security.iam, {})
+        }
       }
     }
     (var.tag_names.environment) = {
       description = "Environment definition."
-      iam         = {}
+      iam         = try(local.tags.environment.iam, {})
       values = {
-        development = {}
-        production  = {}
-      }
-    }
-    (var.tag_names.tenant) = {
-      description = "Organization tenant."
-      values = {
-        for k, v in var.tenants : k => {
-          description = v.descriptive_name
-          iam = {
-            "roles/resourcemanager.tagViewer" = local.tenant_iam[k]
-          }
+        development = {
+          iam = try(local.tags.environment.values.development.iam, {})
+        }
+        production = {
+          iam = try(local.tags.environment.values.production.iam, {})
         }
       }
     }

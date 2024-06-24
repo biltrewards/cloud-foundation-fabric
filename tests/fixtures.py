@@ -186,8 +186,13 @@ def plan_validator(module_path, inventory_paths, basedir, tf_var_files=None,
     # print(yaml.dump({'counts': summary.counts}))
 
     if 'values' in inventory:
-      validate_plan_object(inventory['values'], summary.values, relative_path,
-                           "")
+      try:
+        validate_plan_object(inventory['values'], summary.values, relative_path,
+                             "")
+      except AssertionError:
+        print(f'\n{path}')
+        print(yaml.dump({'values': summary.values}))
+        raise
 
     if 'counts' in inventory:
       try:
@@ -199,6 +204,7 @@ def plan_validator(module_path, inventory_paths, basedir, tf_var_files=None,
           assert plan_count == expected_count, \
               f'{relative_path}: count of {type_} resources failed. Got {plan_count}, expected {expected_count}'
       except AssertionError:
+        print(f'\n{path}')
         print(yaml.dump({'counts': summary.counts}))
         raise
 
@@ -218,6 +224,7 @@ def plan_validator(module_path, inventory_paths, basedir, tf_var_files=None,
               f'{relative_path}: output {output_name} failed. Got `{plan_output}`, expected `{expected_output}`'
       except AssertionError:
         if _buffer:
+          print(f'\n{path}')
           print(yaml.dump(_buffer))
         raise
   return summary
@@ -282,7 +289,7 @@ def plan_validator_fixture(request):
 def get_tfvars_for_e2e():
   _variables = [
       'billing_account', 'group_email', 'organization_id', 'parent', 'prefix',
-      'region'
+      'region', 'region_secondary'
   ]
   missing_vars = set([f'TFTEST_E2E_{k}' for k in _variables]) - set(
       os.environ.keys())
@@ -293,6 +300,8 @@ def get_tfvars_for_e2e():
         f'If you want to skip E2E tests add -k "not examples_e2e" to your pytest call'
     )
   tf_vars = {k: os.environ.get(f'TFTEST_E2E_{k}') for k in _variables}
+  if tf_vars['region'] == tf_vars['region_secondary']:
+        raise ValueError("E2E tests require distinct primary and secondary regions.")
   return tf_vars
 
 

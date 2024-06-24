@@ -1,5 +1,5 @@
 /**
- * Copyright 2023 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,6 +54,8 @@ resource "google_container_cluster" "cluster" {
     boot_disk_kms_key = var.node_config.boot_disk_kms_key
     service_account   = var.node_config.service_account
     tags              = var.node_config.tags
+    labels            = var.node_config.k8s_labels
+    resource_labels   = var.node_config.labels
     dynamic "shielded_instance_config" {
       for_each = var.enable_features.shielded_nodes ? [""] : []
       content {
@@ -71,26 +73,14 @@ resource "google_container_cluster" "cluster" {
     }
   }
   addons_config {
-    dns_cache_config {
-      enabled = var.enable_addons.dns_cache
-    }
-    http_load_balancing {
-      disabled = !var.enable_addons.http_load_balancing
-    }
-    horizontal_pod_autoscaling {
-      disabled = !var.enable_addons.horizontal_pod_autoscaling
-    }
-    network_policy_config {
-      disabled = !var.enable_addons.network_policy
-    }
     cloudrun_config {
       disabled = !var.enable_addons.cloudrun
     }
-    istio_config {
-      disabled = var.enable_addons.istio == null
-      auth = (
-        try(var.enable_addons.istio.enable_tls, false) ? "AUTH_MUTUAL_TLS" : "AUTH_NONE"
-      )
+    config_connector_config {
+      enabled = var.enable_addons.config_connector
+    }
+    dns_cache_config {
+      enabled = var.enable_addons.dns_cache
     }
     gce_persistent_disk_csi_driver_config {
       enabled = var.enable_addons.gce_persistent_disk_csi_driver
@@ -101,14 +91,29 @@ resource "google_container_cluster" "cluster" {
     gcs_fuse_csi_driver_config {
       enabled = var.enable_addons.gcs_fuse_csi_driver
     }
+    gke_backup_agent_config {
+      enabled = var.backup_configs.enable_backup_agent
+    }
+    horizontal_pod_autoscaling {
+      disabled = !var.enable_addons.horizontal_pod_autoscaling
+    }
+    http_load_balancing {
+      disabled = !var.enable_addons.http_load_balancing
+    }
+    istio_config {
+      disabled = var.enable_addons.istio == null
+      auth = (
+        try(var.enable_addons.istio.enable_tls, false) ? "AUTH_MUTUAL_TLS" : "AUTH_NONE"
+      )
+    }
     kalm_config {
       enabled = var.enable_addons.kalm
     }
-    config_connector_config {
-      enabled = var.enable_addons.config_connector
+    network_policy_config {
+      disabled = !var.enable_addons.network_policy
     }
-    gke_backup_agent_config {
-      enabled = var.backup_configs.enable_backup_agent
+    stateful_ha_config {
+      enabled = var.enable_addons.stateful_ha
     }
   }
   dynamic "authenticator_groups_config" {
@@ -267,6 +272,12 @@ resource "google_container_cluster" "cluster" {
         var.vpc_config.secondary_range_blocks.services
       )
       stack_type = var.vpc_config.stack_type
+      dynamic "additional_pod_ranges_config" {
+        for_each = var.vpc_config.additional_ranges != null ? [""] : []
+        content {
+          pod_range_names = var.vpc_config.additional_ranges
+        }
+      }
     }
   }
   dynamic "ip_allocation_policy" {
@@ -279,6 +290,12 @@ resource "google_container_cluster" "cluster" {
         var.vpc_config.secondary_range_names.services
       )
       stack_type = var.vpc_config.stack_type
+      dynamic "additional_pod_ranges_config" {
+        for_each = var.vpc_config.additional_ranges != null ? [""] : []
+        content {
+          pod_range_names = var.vpc_config.additional_ranges
+        }
+      }
     }
   }
   # Send GKE cluster logs from chosen sources to Cloud Logging.
@@ -404,9 +421,6 @@ resource "google_container_cluster" "cluster" {
         enable_relay = (
           var.monitoring_config.advanced_datapath_observability.enable_relay
         )
-        relay_mode = (
-          var.monitoring_config.advanced_datapath_observability.relay_mode
-        )
       }
     }
   }
@@ -511,6 +525,7 @@ resource "google_gke_backup_backup_plan" "backup_plan" {
   cluster  = google_container_cluster.cluster.id
   location = each.value.region
   project  = var.project_id
+  labels   = each.value.labels
   retention_policy {
     backup_delete_lock_days = try(each.value.retention_policy_delete_lock_days)
     backup_retain_days      = try(each.value.retention_policy_days)
