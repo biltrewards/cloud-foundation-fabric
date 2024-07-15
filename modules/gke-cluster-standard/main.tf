@@ -222,15 +222,15 @@ resource "google_container_cluster" "cluster" {
       }
       dynamic "resource_limits" {
         for_each = (
-          try(local.cas.gpu_resources, null) == null
+          try(local.cas.accelerator_resources, null) == null
           ? []
-          : local.cas.gpu_resources
+          : local.cas.accelerator_resources
         )
-        iterator = gpu_resources
+        iterator = accelerator_resources
         content {
-          resource_type = gpu_resources.value.resource_type
-          minimum       = gpu_resources.value.min
-          maximum       = gpu_resources.value.max
+          resource_type = accelerator_resources.value.resource_type
+          minimum       = accelerator_resources.value.min
+          maximum       = accelerator_resources.value.max
         }
       }
     }
@@ -454,9 +454,10 @@ resource "google_container_cluster" "cluster" {
       var.private_cluster_config != null ? [""] : []
     )
     content {
-      enable_private_nodes    = true
-      enable_private_endpoint = var.private_cluster_config.enable_private_endpoint
-      master_ipv4_cidr_block  = try(var.vpc_config.master_ipv4_cidr_block, null)
+      enable_private_nodes        = true
+      enable_private_endpoint     = var.private_cluster_config.enable_private_endpoint
+      private_endpoint_subnetwork = try(var.vpc_config.master_endpoint_subnetwork, null)
+      master_ipv4_cidr_block      = try(var.vpc_config.master_ipv4_cidr_block, null)
       master_global_access_config {
         enabled = var.private_cluster_config.master_global_access
       }

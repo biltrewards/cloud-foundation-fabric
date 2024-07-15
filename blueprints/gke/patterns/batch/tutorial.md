@@ -15,7 +15,7 @@ Kueue has the following characteristics:
 * It can integrate with other job APIs.
 * Kueue refers to jobs defined with any API as Workloads, to avoid the confusion with the specific Kubernetes Job API.
 
-When working with Kueue there are a few concepts that ome needs to be familiar with:
+When working with Kueue there are a few concepts that one needs to be familiar with:
 
 * ResourceFlavour
 
@@ -92,7 +92,7 @@ cluster_name   = "gke-patterns-cluster"
 cluster_create = {
   deletion_protection = false
   labels = {
-    pattern = "kafka"
+    pattern = "batch"
   }
 }
 region         = "europe-west1"
