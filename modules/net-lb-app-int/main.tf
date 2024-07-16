@@ -99,7 +99,7 @@ resource "google_compute_region_target_https_proxy" "default" {
   certificate_manager_certificates = var.https_proxy_config.certificate_manager_certificates
   ssl_policy                       = var.https_proxy_config.ssl_policy
   url_map                          = google_compute_region_url_map.default.id
-  ssl_certificates                 = local.proxy_ssl_certificates
+  ssl_certificates                 = var.ssl_certificates.certificate_ids
 }
 
 resource "google_compute_service_attachment" "default" {

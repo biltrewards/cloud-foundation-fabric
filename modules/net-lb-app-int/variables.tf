@@ -45,16 +45,6 @@ variable "group_configs" {
   nullable = false
 }
 
-variable "https_proxy_config" {
-  description = "HTTPS proxy configuration."
-  type = object({
-    certificate_manager_certificates = optional(list(string))
-    ssl_policy                       = optional(string)
-  })
-  default  = {}
-  nullable = false
-}
-
 variable "labels" {
   description = "Labels set on resources."
   type        = map(string)
@@ -214,6 +204,7 @@ variable "https_proxy_config" {
   nullable = false
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "ssl_certificates" {
   description = "SSL target proxy certificates (only if protocol is HTTPS)."
   type = object({
