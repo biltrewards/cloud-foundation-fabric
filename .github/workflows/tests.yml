@@ -122,6 +122,7 @@ jobs:
       - name: Create report
         uses: ./.github/actions/post-fabric-tests
         if: always()
+        continue-on-error: true
         with:
           MODULE: Blueprint Examples
 
