@@ -53,7 +53,7 @@ resource "google_project" "project" {
   skip_delete         = var.skip_delete
 
   lifecycle {
-    ignore_changes = [ billing_account ]
+    ignore_changes = [billing_account]
   }
 }
 
