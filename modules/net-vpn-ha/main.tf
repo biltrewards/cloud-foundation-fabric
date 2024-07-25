@@ -104,26 +104,13 @@ resource "google_compute_router_peer" "bgp_peer" {
     ? "CUSTOM"
     : "DEFAULT"
   )
-  advertised_groups = concat(
-    try(each.value.bgp_peer.custom_advertise.all_subnets, false) ? ["ALL_SUBNETS"] : [],
-    try(each.value.bgp_peer.custom_advertise.all_vpc_subnets, false) ? ["ALL_VPC_SUBNETS"] : [],
-    try(each.value.bgp_peer.custom_advertise.all_peer_vpc_subnets, false) ? ["ALL_PEER_VPC_SUBNETS"] : []
-  )
+  advertised_groups = try(each.value.bgp_peer.custom_advertise.all_subnets, false) ? ["ALL_SUBNETS"] : []
   dynamic "advertised_ip_ranges" {
     for_each = try(each.value.bgp_peer.custom_advertise.ip_ranges, {})
     iterator = range
     content {
       range       = range.key
       description = range.value
-    }
-  }
-  dynamic "bfd" {
-    for_each = each.value.bgp_peer.bfd != null ? [each.value.bgp_peer.bfd] : []
-    content {
-      session_initialization_mode = bfd.value.session_initialization_mode
-      min_receive_interval        = bfd.value.min_receive_interval
-      min_transmit_interval       = bfd.value.min_transmit_interval
-      multiplier                  = bfd.value.multiplier
     }
   }
   dynamic "md5_authentication_key" {

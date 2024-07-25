@@ -62,6 +62,13 @@ variable "region" {
   default = "europe-west8"
 }
 
+variable "regions" {
+  default = {
+    primary   = "europe-west8"
+    secondary = "europe-west9"
+  }
+}
+
 variable "service_account" {
   default = {
     id        = "service_account_id"
@@ -79,12 +86,29 @@ variable "subnet" {
   }
 }
 
+variable "subnets" {
+  default = {
+    primary = {
+      name      = "primary"
+      region    = "europe-west8"
+      cidr      = "10.0.16.0/24"
+      self_link = "https://www.googleapis.com/compute/v1/projects/my-project/regions/europe-west8/subnetworks/primary"
+    }
+    secondary = {
+      name      = "secondary"
+      region    = "europe-west89"
+      cidr      = "10.0.16.0/24"
+      self_link = "https://www.googleapis.com/compute/v1/projects/my-project/regions/europe-west9/subnetworks/secondary"
+    }
+  }
+}
+
 variable "subnet_psc_1" {
   default = {
     name      = "subnet_name"
     region    = "subnet_region"
     cidr      = "subnet_cidr"
-    self_link = "subnet_self_link"
+    self_link = "https://www.googleapis.com/compute/v1/projects/my-project/regions/europe-west8/subnetworks/subnet"
   }
 }
 

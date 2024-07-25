@@ -1,5 +1,5 @@
 /**
- * Copyright 2023 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,8 +31,15 @@ variable "gke_version" {
   default     = null
 }
 
-variable "labels" {
+variable "k8s_labels" {
   description = "Kubernetes labels applied to each node."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+}
+
+variable "labels" {
+  description = "The resource labels to be applied each node (vm)."
   type        = map(string)
   default     = {}
   nullable    = false
@@ -145,7 +152,12 @@ variable "nodepool_config" {
       auto_repair  = optional(bool)
       auto_upgrade = optional(bool)
     }))
-    # placement_policy = optional(bool)
+    placement_policy = optional(object({
+      type         = string
+      policy_name  = optional(string)
+      tpu_topology = optional(string)
+    }))
+    queued_provisioning = optional(bool, false)
     upgrade_settings = optional(object({
       max_surge       = number
       max_unavailable = number

@@ -1,5 +1,5 @@
 /**
- * Copyright 2023 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,6 @@ resource "google_container_node_pool" "nodepool" {
   initial_node_count = var.node_count.initial
   node_count         = var.node_count.current
   node_locations     = var.node_locations
-  # placement_policy   = var.nodepool_config.placement_policy
 
   dynamic "autoscaling" {
     for_each = (
@@ -129,12 +128,29 @@ resource "google_container_node_pool" "nodepool" {
     }
   }
 
+  dynamic "placement_policy" {
+    for_each = try(var.nodepool_config.placement_policy, null) != null ? [""] : []
+    content {
+      type         = var.nodepool_config.placement_policy.type
+      policy_name  = var.nodepool_config.placement_policy.policy_name
+      tpu_topology = var.nodepool_config.placement_policy.tpu_topology
+    }
+  }
+
+  dynamic "queued_provisioning" {
+    for_each = try(var.nodepool_config.queued_provisioning, false) ? [""] : []
+    content {
+      enabled = var.nodepool_config.queued_provisioning
+    }
+  }
+
   node_config {
     boot_disk_kms_key = var.node_config.boot_disk_kms_key
     disk_size_gb      = var.node_config.disk_size_gb
     disk_type         = var.node_config.disk_type
     image_type        = var.node_config.image_type
-    labels            = var.labels
+    labels            = var.k8s_labels
+    resource_labels   = var.labels
     local_ssd_count   = var.node_config.local_ssd_count
     machine_type      = var.node_config.machine_type
     metadata          = local.node_metadata

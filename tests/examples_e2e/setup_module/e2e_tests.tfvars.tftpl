@@ -26,17 +26,43 @@ folder_id       = "folders/${folder_id}"
 project_id      = "${project_id}"
 project_number  = "${project_number}"
 region          = "${region}"
+regions         = {
+  primary       = "${regions.primary}"
+  secondary     = "${regions.secondary}"
+}
 service_account = {
     id        = "${service_account.id}"
     email     = "${service_account.email}"
     iam_email = "${service_account.iam_email}"
   }
+
 subnet = {
     name      = "${subnet.name}"
     region    = "${subnet.region}"
     cidr      = "${subnet.ip_cidr_range}"
     self_link = "${subnet.self_link}"
-  }
+}
+subnets = {
+    primary = {
+      name      = "${subnet.name}"
+      region    = "${subnet.region}"
+      cidr      = "${subnet.ip_cidr_range}"
+      self_link = "${subnet.self_link}"
+    }
+    secondary = {
+      name      = "${subnet_secondary.name}"
+      region    = "${subnet_secondary.region}"
+      cidr      = "${subnet_secondary.ip_cidr_range}"
+      self_link = "${subnet_secondary.self_link}"
+    }
+
+}
+subnet_psc_1 = {
+    name      = "${subnet_psc_1.name}"
+    region    = "${subnet_psc_1.region}"
+    cidr      = "${subnet_psc_1.ip_cidr_range}"
+    self_link = "${subnet_psc_1.self_link}"
+}
 vpc = {
     name      = "${vpc.name}"
     self_link = "${vpc.self_link}"

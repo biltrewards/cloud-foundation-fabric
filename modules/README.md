@@ -79,10 +79,13 @@ These modules are used in the examples included in this repository. If you are u
 
 ## Data
 
+- [AlloyDB](./alloydb)
 - [Analytics Hub](./analytics-hub)
 - [BigQuery dataset](./bigquery-dataset)
 - [Bigtable instance](./bigtable-instance)
 - [Cloud SQL instance](./cloudsql-instance)
+- [Spanner instance](./spanner-instance)
+- [Firestore](./firestore)
 - [Data Catalog Policy Tag](./data-catalog-policy-tag)
 - [Data Catalog Tag](./data-catalog-tag)
 - [Data Catalog Tag Template](./data-catalog-tag-template)
@@ -110,6 +113,7 @@ These modules are used in the examples included in this repository. If you are u
 - [SecretManager](./secret-manager)
 - [VPC Service Control](./vpc-sc)
 - [Secure Web Proxy](./net-swp)
+- [Certificate Manager](./certificate-manager)
 
 ## Serverless
 
