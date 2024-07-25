@@ -234,6 +234,13 @@ resource "google_compute_instance" "default" {
     }
   }
 
+  dynamic "network_performance_config" {
+    for_each = var.enable_network_performance_config ? [""] : []
+    content {
+      total_egress_bandwidth_tier = "TIER_1"
+    }
+  }
+
   dynamic "confidential_instance_config" {
     for_each = var.confidential_compute ? [""] : []
     content {

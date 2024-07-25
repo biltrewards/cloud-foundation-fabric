@@ -388,3 +388,9 @@ variable "zone" {
   description = "Compute zone."
   type        = string
 }
+
+variable "enable_network_performance_config" {
+  description = "Enable network performance config on the instances."
+  type        = bool
+  default     = false
+}
