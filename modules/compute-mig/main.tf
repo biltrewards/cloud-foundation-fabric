@@ -106,13 +106,8 @@ resource "google_compute_instance_group_manager" "default" {
     }
   }
 
-  dynamic "lifecycle" {
-    for_each = var.ignore_instance_template_version ? [] : [""]
-    content {
-      ignore_changes = [
-        version[0].instance_template
-      ]
-    }
+  lifecycle {
+    ignore_changes = var.ignore_instance_template_version ? [version[0].instance_template] : []
   }
 }
 
