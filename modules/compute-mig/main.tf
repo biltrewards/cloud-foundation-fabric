@@ -107,7 +107,7 @@ resource "google_compute_instance_group_manager" "default" {
   }
 
   lifecycle {
-    ignore_changes = [version[0].instance_template]
+    ignore_changes = [version.instance_template]
   }
 }
 
