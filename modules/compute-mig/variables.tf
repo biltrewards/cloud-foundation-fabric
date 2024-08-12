@@ -280,3 +280,9 @@ variable "wait_for_instances" {
   })
   default = null
 }
+
+variable "ignore_instance_template_version" {
+  description = "It will disable any changes on instance template version."
+  type        = bool
+  default     = false
+}
